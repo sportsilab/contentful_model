@@ -55,6 +55,29 @@ module ContentfulModel
       fail ContentfulModel::VersionMismatchError, "Version Mismatch persisting after refetch attempt, use :refetch_management_entry and try again later."
     end
 
+    def unpublish
+      begin
+        to_management.unpublish
+      rescue Contentful::Management::Conflict
+        to_management(refetch_management_entry).save
+      end
+
+      self
+
+    rescue Contentful::Management::BadRequest
+      fail Contentful::ManageableError, "Not published"
+    end
+
+    def destroy
+      begin
+        to_management.destroy
+      rescue Contentful::Management::BadRequest
+        fail Contentful::ManageableError, "Cannot delete published"
+      end
+
+      nil
+    end
+
     private
 
     def management_space

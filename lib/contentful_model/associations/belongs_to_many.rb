@@ -56,7 +56,7 @@ module ContentfulModel
               parents = instance_variable_get(:"@#{association_names}")
               if parents.nil?
                 #get the parent class objects as an array
-                parent_objects = options[:class_name].constantize.send(:all).send(:load)
+                parent_objects = options[:class_name].constantize.send(:all).send(:limit, 1000).send(:load)
                 #iterate through parent objects and see if any of the children include the same ID as the method
                 parents = parent_objects.select do |parent_object|
                   #check to see if the parent object responds to the plural or singular.

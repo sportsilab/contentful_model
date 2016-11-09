@@ -78,6 +78,14 @@ module ContentfulModel
       nil
     end
 
+    def update(params = {})
+      begin
+        fetch_management_entry.update(params)
+      rescue Contentful::Management::BadRequest
+        fail Contentful::ManageableError, "Cannot update"
+      end
+    end
+
     private
 
     def management_space

@@ -11,6 +11,14 @@ module ContentfulModel
       self.class.coercions ||= {}
     end
 
+    def cache_key(*timestamp_names)
+      if timestamp_names.present?
+        raise ArgumentError, "ContentfulModel::Base models don't support named timestamps."
+      end
+
+      "#{self.class.to_s.underscore}/#{self.id}-#{self.updated_at.utc.to_s(:usec)}"
+    end
+
     private
 
     def define_getters
@@ -25,9 +33,11 @@ module ContentfulModel
       end
     end
 
-    def define_getter(name)
-      define_singleton_method "#{name.to_s.underscore}" do
-        fields(default_locale)[name]
+    def define_getter(field_name)
+      method_name = field_name.to_s.underscore.to_sym
+
+      define_singleton_method(method_name) do
+        self.class.coerce_value(method_name, fields(default_locale)[field_name])
       end
     end
 
@@ -55,20 +65,7 @@ module ContentfulModel
           raise ContentfulModel::AttributeNotFoundError, "no attribute #{method} found"
         end
       else
-        # if there's no coercion specified, return the result
-        if self.class.coercions[method].nil?
-          return result
-        #if there's a coercion specified for the field and it's a proc, pass the result
-        #to the proc
-        elsif self.class.coercions[method].is_a?(Proc)
-          return self.class.coercions[method].call(result)
-        #provided the coercion is in the COERCIONS constant, call the proc on that
-        elsif !self.class::COERCIONS[self.class.coercions[method]].nil?
-          return self.class::COERCIONS[self.class.coercions[method]].call(result)
-        else
-          #... or just return the result
-          return result
-        end
+        self.class.coerce_value(method, result)
       end
     end
 
@@ -78,14 +75,6 @@ module ContentfulModel
       else
         true
       end
-    end
-
-    def cache_key(*timestamp_names)
-      if timestamp_names.present?
-        raise ArgumentError, "ContentfulModel::Base models don't support named timestamps."
-      end
-
-      "#{self.class.to_s.underscore}/#{self.id}-#{self.updated_at.utc.to_s(:number)}"
     end
 
     class << self
@@ -121,6 +110,20 @@ module ContentfulModel
           @coercions.merge!(coercions_hash)
         end
         @coercions
+      end
+
+      def coerce_value(field_name, value)
+        coercion = coercions[field_name]
+
+        if coercion.is_a?(Symbol)
+          coercion = Contentful::Resource::COERCIONS[coercion]
+        end
+
+        if coercion
+          coercion.call(value)
+        else
+          value
+        end
       end
 
       def return_nil_for_empty(*fields)

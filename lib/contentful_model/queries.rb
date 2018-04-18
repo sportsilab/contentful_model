@@ -23,6 +23,10 @@ module ContentfulModel
         @query << {'sys.id' => id}
         load.first
       end
+
+      def paginate(page = 1, per_page = 100, order_field = 'sys.updatedAt')
+        @query.paginate(page, per_page, order_field)
+      end
     end
   end
 end

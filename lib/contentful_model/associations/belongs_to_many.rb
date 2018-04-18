@@ -54,35 +54,48 @@ module ContentfulModel
           else
             define_method "#{association_names}" do
               parents = instance_variable_get(:"@#{association_names}")
-              if parents.nil?
-                #get the parent class objects as an array
-                parent_objects = options[:class_name].constantize.send(:all).send(:limit, 1000).send(:load)
-                #iterate through parent objects and see if any of the children include the same ID as the method
-                parents = parent_objects.select do |parent_object|
-                  #check to see if the parent object responds to the plural or singular.
-                  if parent_object.respond_to?(:"#{options[:inverse_of].to_s.pluralize}")
-                    collection_of_children_on_parent = parent_object.send(:"#{options[:inverse_of].to_s.pluralize}")
-                    #get the collection of children from the parent. This *might* be nil if the parent doesn't have
-                    # any children, in which case, just skip over this parent item and move on to the next.
-                    if collection_of_children_on_parent.nil?
-                      next
-                    else
-                      collection_of_children_on_parent.collect(&:id).include?(id)
-                    end
-                  else
-                    #if it doesn't respond to the plural, assume singular
-                    child_on_parent = parent_object.send(:"#{options[:inverse_of]}")
-                    # Do the same skipping routine on nil.
-                    if child_on_parent.nil?
-                      next
-                    else
-                      child_on_parent.send(:id) == id
-                    end
 
+              if parents.nil?
+                #get the parent class objects as an array in pages
+
+                parents = []
+                page = 1
+
+                while parent_objects = options[:class_name].constantize.send(:paginate, page)
+                  break if parent_objects.empty?
+                  page += 1
+
+                  #iterate through parent objects and see if any of the children include the same ID as the method
+                  parents_page = parent_objects.select do |parent_object|
+                    #check to see if the parent object responds to the plural or singular.
+                    if parent_object.respond_to?(:"#{options[:inverse_of].to_s.pluralize}")
+                      collection_of_children_on_parent = parent_object.send(:"#{options[:inverse_of].to_s.pluralize}")
+                      #get the collection of children from the parent. This *might* be nil if the parent doesn't have
+                      # any children, in which case, just skip over this parent item and move on to the next.
+                      if collection_of_children_on_parent.nil?
+                        next
+                      else
+                        collection_of_children_on_parent.collect(&:id).include?(id)
+                      end
+                    else
+                      #if it doesn't respond to the plural, assume singular
+                      child_on_parent = parent_object.send(:"#{options[:inverse_of]}")
+                      # Do the same skipping routine on nil.
+                      if child_on_parent.nil?
+                        next
+                      else
+                        child_on_parent.send(:id) == id
+                      end
+
+                    end
                   end
+
+                  parents += parents_page
                 end
-                instance_variable_set(:"@#{association_names}",parents)
+
+                instance_variable_set(:"@#{association_names}", parents)
               end
+
               parents
             end
           end
